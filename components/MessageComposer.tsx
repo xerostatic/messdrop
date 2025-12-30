@@ -12,12 +12,14 @@ export function MessageComposer({ onMessageSent }: MessageComposerProps) {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = async () => {
     if (!message.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
+    setError(null);
 
     try {
       const res = await fetch("/api/messages", {
@@ -34,9 +36,13 @@ export function MessageComposer({ onMessageSent }: MessageComposerProps) {
           setIsOpen(false);
           onMessageSent();
         }, 1500);
+      } else {
+        const data = await res.json();
+        setError(data.error || "Something went wrong");
       }
-    } catch (error) {
-      console.error("Failed to send message:", error);
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      setError("Failed to send message");
     } finally {
       setIsSubmitting(false);
     }
@@ -144,9 +150,16 @@ export function MessageComposer({ onMessageSent }: MessageComposerProps) {
                       />
 
                       <div className="flex items-center justify-between mt-4">
-                        <span className="text-xs text-white/30 font-mono">
-                          {message.length}/280
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-white/30 font-mono">
+                            {message.length}/280
+                          </span>
+                          {error && (
+                            <span className="text-xs text-biolum-pink">
+                              {error}
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex gap-3">
                           <button

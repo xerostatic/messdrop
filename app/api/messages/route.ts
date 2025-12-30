@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { messages } from "@/lib/db/schema";
+import { isContentSafe } from "@/lib/moderation";
 import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
@@ -40,6 +41,15 @@ export async function POST(request: Request) {
     if (trimmedContent.length === 0) {
       return NextResponse.json(
         { error: "Content cannot be empty" },
+        { status: 400 }
+      );
+    }
+
+    // Content moderation check
+    const moderationResult = isContentSafe(trimmedContent);
+    if (!moderationResult.safe) {
+      return NextResponse.json(
+        { error: moderationResult.reason || "Message not allowed" },
         { status: 400 }
       );
     }
