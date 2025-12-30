@@ -13,7 +13,6 @@ export function getDb(): NeonHttpDatabase<typeof schema> {
     throw new Error("DATABASE_URL environment variable is not set");
   }
   
-  // @ts-expect-error - neon types have minor incompatibility with drizzle but work at runtime
   dbInstance = drizzle(neon(databaseUrl), { schema });
   return dbInstance;
 }
