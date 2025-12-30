@@ -1,25 +1,32 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
-import type { NeonQueryFunction } from "@neondatabase/serverless";
 import * as schema from "./schema";
 
-let _db: NeonHttpDatabase<typeof schema> | null = null;
+// Cache the db instance
+let dbInstance: NeonHttpDatabase<typeof schema> | null = null;
 
-export const getDb = () => {
-  if (!_db) {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL is not set");
-    }
-    const sql = neon(process.env.DATABASE_URL) as NeonQueryFunction<boolean, boolean>;
-    _db = drizzle(sql, { schema });
+export function getDb(): NeonHttpDatabase<typeof schema> {
+  if (dbInstance) return dbInstance;
+  
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL environment variable is not set");
   }
-  return _db;
-};
+  
+  // @ts-expect-error - neon types have minor incompatibility with drizzle but work at runtime
+  dbInstance = drizzle(neon(databaseUrl), { schema });
+  return dbInstance;
+}
 
-// For convenience, but will throw if accessed before DATABASE_URL is set
+// Export db as a getter that lazily initializes
 export const db = new Proxy({} as NeonHttpDatabase<typeof schema>, {
-  get(_, prop) {
-    return (getDb() as any)[prop];
+  get(_target, prop: string | symbol) {
+    const instance = getDb();
+    const value = (instance as Record<string | symbol, unknown>)[prop];
+    if (typeof value === "function") {
+      return value.bind(instance);
+    }
+    return value;
   },
 });
 
