@@ -11,6 +11,7 @@ export function getDb() {
   }
   
   const sql = neon(databaseUrl);
-  return drizzle(sql, { schema });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return drizzle(sql as any, { schema });
 }
 
