@@ -1,5 +1,4 @@
-import { db } from "@/lib/db";
-import { messages } from "@/lib/db/schema";
+import { getDb, schema } from "@/lib/db";
 import { isContentSafe } from "@/lib/moderation";
 import { desc } from "drizzle-orm";
 import { NextResponse } from "next/server";
@@ -8,17 +7,25 @@ const COLORS = ["cyan", "teal", "purple", "pink", "blue"] as const;
 
 export async function GET() {
   try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 500 }
+      );
+    }
+
+    const db = getDb();
     const allMessages = await db
       .select()
-      .from(messages)
-      .orderBy(desc(messages.createdAt))
+      .from(schema.messages)
+      .orderBy(desc(schema.messages.createdAt))
       .limit(100);
 
     return NextResponse.json(allMessages);
   } catch (error) {
     console.error("Failed to fetch messages:", error);
     return NextResponse.json(
-      { error: "Failed to fetch messages" },
+      { error: `Database error: ${error instanceof Error ? error.message : 'Unknown'}` },
       { status: 500 }
     );
   }
@@ -26,6 +33,13 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { content } = body;
 
@@ -36,7 +50,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const trimmedContent = content.trim().slice(0, 280); // Max 280 chars like tweets
+    const trimmedContent = content.trim().slice(0, 280);
 
     if (trimmedContent.length === 0) {
       return NextResponse.json(
@@ -45,7 +59,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Content moderation check
     const moderationResult = isContentSafe(trimmedContent);
     if (!moderationResult.safe) {
       return NextResponse.json(
@@ -54,12 +67,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Random color and depth for visual variety
     const color = COLORS[Math.floor(Math.random() * COLORS.length)];
     const depth = Math.floor(Math.random() * 5) + 1;
 
+    const db = getDb();
     const [newMessage] = await db
-      .insert(messages)
+      .insert(schema.messages)
       .values({
         content: trimmedContent,
         color,
@@ -71,7 +84,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to create message:", error);
     return NextResponse.json(
-      { error: "Failed to create message" },
+      { error: `Database error: ${error instanceof Error ? error.message : 'Unknown'}` },
       { status: 500 }
     );
   }
